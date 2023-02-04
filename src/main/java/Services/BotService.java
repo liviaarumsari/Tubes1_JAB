@@ -34,43 +34,61 @@ public class BotService {
     }
 
     public void computeNextPlayerAction(PlayerAction playerAction) {
+        // Allowed gap sizes
+        final int MAX_GAP_WITH_BOUNDARY = 100;
+        final int MAX_GAP_WITH_OTHERSHIPS = 50;
+        final int MAX_GAP_WITH_HARMFUL_OBJECTS = 15;
 
         if (!gameState.getGameObjects().isEmpty()) {
-
             // Game Tick Payload
             var gameObjects = gameState.getGameObjects();
             var playerGameObjects = gameState.getPlayerGameObjects();
             var worldObjects = gameState.getWorld();
-            var foodList = gameState.getGameObjects()
-                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD)
-                    .sorted(Comparator
-                            .comparing(item -> getDistanceBetween(bot, item)))
-                    .collect(Collectors.toList());
 
+            // List of objects
             var playerList = gameState.getPlayerGameObjects()
                     .stream().filter(item -> item.getGameObjectType() == ObjectTypes.PLAYER)
                     .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
                     .collect(Collectors.toList());
+            var foodList = gameState.getGameObjects()
+                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD)
+                    .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
+                    .collect(Collectors.toList());
+            var gasCloudsList = gameState.getGameObjects()
+                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.GAS_CLOUD)
+                    .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
+                    .collect(Collectors.toList());
+            var asteroidsList = gameState.getGameObjects()
+                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.ASTEROID_FIELD)
+                    .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
+                    .collect(Collectors.toList());
 
+            int currentSize = this.bot.getSize();
 
-            final int MAX_GAP_WITH_BOUNDARY = 150;
-            final int MAX_GAP_WITH_OTHERSHIPS = 50;
-            final int MAX_GAP_WITH_HARMFUL_OBJECTS = 25;
-            double gap = getDistanceBetween(this.bot, worldObjects);
-            double nearestShips = getDistanceBetween(this.bot, playerList.get(0));
+            double distanceToBoundary = getDistanceBetween(this.bot, worldObjects);
+
+            // nearest object
+            double nearestShips = getDistanceBetween(this.bot, playerList.get(0)) + currentSize;
+            double nearestGasCloud = getDistanceBetween(this.bot, gasCloudsList.get(0)) + currentSize;
+            double nearestAsteroid = getDistanceBetween(this.bot, asteroidsList.get(0)) + currentSize;
+
+            // Default move
             playerAction.action = PlayerActions.FORWARD;
-            if (gap <= MAX_GAP_WITH_BOUNDARY) {
+
+            if (distanceToBoundary <= MAX_GAP_WITH_BOUNDARY) {
                 // move towards center
                 playerAction.heading = getHeadingBetween();
             }
             else {
                 if (nearestShips <= MAX_GAP_WITH_OTHERSHIPS) {
-                    int sizeDiff = playerList.get(0).getSize() - this.bot.getSize();
+                    int sizeDiff = playerList.get(0).getSize() - currentSize;
+
                     if (sizeDiff > 20) {
                         // move to opposite direction
                         playerAction.heading = (-1) * getHeadingBetween(playerList.get(0));
                     }
-                    else if (sizeDiff < 20 && sizeDiff >= -20) {
+                    else if (sizeDiff < 20 && sizeDiff >= 0) {
+                        // farming if 0 <= sizeDiff < 20
                         playerAction.heading = getHeadingBetween(foodList.get(0));
                     }
                     else {
@@ -78,11 +96,19 @@ public class BotService {
                         playerAction.heading = getHeadingBetween(playerList.get(0));
                     }
                 }
+                else if (nearestGasCloud <= MAX_GAP_WITH_HARMFUL_OBJECTS || nearestAsteroid <= MAX_GAP_WITH_HARMFUL_OBJECTS) {
+                    if (nearestGasCloud > nearestAsteroid) {
+                        playerAction.heading = (-1) * getHeadingBetween(asteroidsList.get(0));
+                    } else {
+                        playerAction.heading = (-1) * getHeadingBetween(gasCloudsList.get(0));
+                    }
+                }
                 else {
-                    playerAction.heading = getHeadingBetween(foodList.get(0));
+                    if (getDistanceBetween(foodList.get(0), gasCloudsList.get(0)) > 20 && getDistanceBetween(foodList.get(0), asteroidsList.get(0)) > 20) {
+                        playerAction.heading = getHeadingBetween(foodList.get(0));
+                    }
                 }
             }
-
         }
 
         this.playerAction = playerAction;
@@ -108,6 +134,12 @@ public class BotService {
         return Math.sqrt(triangleX * triangleX + triangleY * triangleY);
     }
 
+    /**
+     * Get distance relative to boundary
+     * @param bot this bot
+     * @param world map
+     * @return distance from boundary
+     * */
     private double getDistanceBetween(GameObject bot, World world) {
         var botPosition = Math.sqrt(bot.getPosition().x * bot.getPosition().x + bot.getPosition().y * bot.getPosition().y);
         return world.getRadius() - botPosition;
@@ -119,6 +151,10 @@ public class BotService {
         return (direction + 360) % 360;
     }
 
+    /**
+     * Get degrees to origin
+     * @return direction to origin
+     * */
     private int getHeadingBetween() {
         var direction = toDegrees(Math.atan2(-bot.getPosition().y,
                 -bot.getPosition().x));
