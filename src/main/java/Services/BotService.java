@@ -68,6 +68,7 @@ public class BotService {
             double distanceToBoundary = getDistanceBetween(this.bot, worldObjects);
 
             // nearest object
+            // TODO: add more objects from ObjectTypes
             double nearestShips = getDistanceBetween(this.bot, playerList.get(0)) + currentSize;
             double nearestGasCloud = getDistanceBetween(this.bot, gasCloudsList.get(0)) + currentSize;
             double nearestAsteroid = getDistanceBetween(this.bot, asteroidsList.get(0)) + currentSize;
