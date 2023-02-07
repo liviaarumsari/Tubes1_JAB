@@ -10,7 +10,10 @@ public class BotService {
     private GameObject bot;
     private PlayerAction playerAction;
     private GameState gameState;
-
+    // Allowed gap sizes
+    final int MAX_GAP_WITH_BOUNDARY = 25;
+    final int MAX_GAP_WITH_OTHER_SHIPS = 50;
+    final int MAX_GAP_WITH_HARMFUL_OBJECTS = 5;
     public BotService() {
         this.playerAction = new PlayerAction();
         this.gameState = new GameState();
@@ -34,10 +37,6 @@ public class BotService {
     }
 
     public void computeNextPlayerAction(PlayerAction playerAction) {
-        // Allowed gap sizes
-        final int MAX_GAP_WITH_BOUNDARY = 100;
-        final int MAX_GAP_WITH_OTHERSHIPS = 50;
-        final int MAX_GAP_WITH_HARMFUL_OBJECTS = 15;
 
         if (!gameState.getGameObjects().isEmpty()) {
             // Game Tick Payload
@@ -65,54 +64,116 @@ public class BotService {
 
             int currentSize = this.bot.getSize();
 
-            double distanceToBoundary = getDistanceBetween(this.bot, worldObjects);
+            double distanceToBoundary = getDistanceBetween(this.bot, worldObjects) - currentSize;
 
             // nearest object
             // TODO: add more objects from ObjectTypes
-            double nearestShips = getDistanceBetween(this.bot, playerList.get(0)) + currentSize;
-            double nearestGasCloud = getDistanceBetween(this.bot, gasCloudsList.get(0)) + currentSize;
-            double nearestAsteroid = getDistanceBetween(this.bot, asteroidsList.get(0)) + currentSize;
+            double nearestShips = getDistanceBetween(this.bot, playerList.get(1)) - currentSize - playerList.get(1).getSize();
+            double nearestGasCloud = getDistanceBetween(this.bot, gasCloudsList.get(0)) - currentSize - gasCloudsList.get(0).getSize();
+            double nearestAsteroid = getDistanceBetween(this.bot, asteroidsList.get(0)) - currentSize - asteroidsList.get(0).getSize();
 
             // Default move
             playerAction.action = PlayerActions.FORWARD;
 
-            if (distanceToBoundary <= MAX_GAP_WITH_BOUNDARY) {
-                // move towards center
-                playerAction.heading = getHeadingBetween();
-            }
-            else {
-                if (nearestShips <= MAX_GAP_WITH_OTHERSHIPS) {
-                    int sizeDiff = playerList.get(0).getSize() - currentSize;
+            System.out.println("Ships: " + nearestShips);
+            System.out.println("GasClouds: " + nearestGasCloud);
+            int totalHarmfulObjects = countSurroundHarmfulObjects(nearestGasCloud, nearestAsteroid);
 
-                    if (sizeDiff > 20) {
-                        // move to opposite direction
-                        playerAction.heading = (-1) * getHeadingBetween(playerList.get(0));
-                    }
-                    else if (sizeDiff < 20 && sizeDiff >= 0) {
-                        // farming if 0 <= sizeDiff < 20
-                        playerAction.heading = getHeadingBetween(foodList.get(0));
-                    }
-                    else {
-                        // pursue small ship
-                        playerAction.heading = getHeadingBetween(playerList.get(0));
+            boolean nearBoundary = distanceToBoundary <= MAX_GAP_WITH_BOUNDARY;
+            if (nearestShips <= MAX_GAP_WITH_OTHER_SHIPS) {
+                // Check
+                if (!nearBoundary) { // if not near boundary
+                    switch (totalHarmfulObjects) {
+                        case 0:
+                            playerAction.heading = currentSize - playerList.get(1).getSize() > 25
+                                    ? getHeadingBetween(playerList.get(1))
+                                    : getHeadingBetween(playerList.get(1)) + 150;
+                            if (currentSize - playerList.get(1).getSize() > 50 && nearestShips <= 5) {
+                                playerAction.action = PlayerActions.START_AFTERBURNER;
+                            }
+                            else {
+                                playerAction.action = PlayerActions.STOP_AFTERBURNER;
+                            }
+                            break;
+                        case 1:
+                            playerAction.heading = nearestGasCloud > nearestAsteroid
+                                    ? (Math.abs(getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(playerList.get(1))) / -2) + 15
+                                    : (Math.abs(getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween(playerList.get(1))) / -2) + 15;
+                            break;
+                        case 2:
+                            playerAction.heading = (getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0))) / 2 + getHeadingBetween(playerList.get(1)) * (-1) + 6;
+                            break;
+                        default:
+                            playerAction.heading = getHeadingBetween(foodList.get(0));
                     }
                 }
-                else if (nearestGasCloud <= MAX_GAP_WITH_HARMFUL_OBJECTS || nearestAsteroid <= MAX_GAP_WITH_HARMFUL_OBJECTS) {
-                    if (nearestGasCloud > nearestAsteroid) {
-                        playerAction.heading = (-1) * getHeadingBetween(asteroidsList.get(0));
-                    } else {
-                        playerAction.heading = (-1) * getHeadingBetween(gasCloudsList.get(0));
+                else { // near boundary
+                    switch (totalHarmfulObjects) {
+                        case 0:
+                            playerAction.heading = currentSize - playerList.get(1).getSize() > 25
+                                    ? getHeadingBetween(playerList.get(1))
+                                    : getHeadingBetween(playerList.get(1)) + 150;
+                            break;
+                        case 1:
+                            playerAction.heading = nearestGasCloud > nearestAsteroid
+                                    ? (Math.abs(getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(playerList.get(1)) + getHeadingBetween()) / -3) + 15
+                                    : (Math.abs(getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween(playerList.get(1)) + getHeadingBetween()) / -3) + 15;
+                            break;
+                        case 2:
+                            playerAction.heading = (getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween()) / 3 + getHeadingBetween(playerList.get(1)) * (-1) + 6;
+                            break;
+                        default:
+                            playerAction.heading = getHeadingBetween(foodList.get(0));
+                    }
+                }
+//                playerAction.action = PlayerActions.STOP;
+            }
+            // if no ships around
+            else {
+                if (!nearBoundary) {
+                    switch (totalHarmfulObjects) {
+                        case 0:
+                            // farming
+                            if (getDistanceBetween(this.bot, foodList.get(0)) - currentSize < nearestGasCloud + 5 || getDistanceBetween(this.bot, foodList.get(0)) - currentSize < nearestAsteroid + 5){
+//                                playerAction.action = PlayerActions.STOP;
+                                playerAction.heading = getHeadingBetween(foodList.get(0)) + 12;
+                            } else {
+                                playerAction.heading = getHeadingBetween(foodList.get(0));
+                            }
+                            break;
+                        case 1:
+                            playerAction.heading = nearestGasCloud > nearestAsteroid
+                                    ? getHeadingBetween(asteroidsList.get(0)) * (-1) + 6
+                                    : getHeadingBetween(gasCloudsList.get(0)) * (-1) + 6;
+                            break;
+                        case 2:
+                            playerAction.heading = (getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0))) / -2 + 6;
+                            break;
                     }
                 }
                 else {
-                    if (getDistanceBetween(foodList.get(0), gasCloudsList.get(0)) > 20 && getDistanceBetween(foodList.get(0), asteroidsList.get(0)) > 20) {
-                        playerAction.heading = getHeadingBetween(foodList.get(0));
-                    }
+                    playerAction.heading = getHeadingBetween();
                 }
             }
+
+
         }
 
         this.playerAction = playerAction;
+    }
+
+    private int countSurroundHarmfulObjects(double nearestGasCloud, double nearestAsteroid) {
+        if (nearestGasCloud <= MAX_GAP_WITH_HARMFUL_OBJECTS || nearestAsteroid <= MAX_GAP_WITH_HARMFUL_OBJECTS) {
+            if (Math.abs(nearestGasCloud - nearestAsteroid) > 20) {
+                return 1;
+            }
+            else {
+                return 2;
+            }
+        }
+        else {
+            return 0;
+        }
     }
 
     public GameState getGameState() {
