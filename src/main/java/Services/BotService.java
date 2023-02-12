@@ -11,9 +11,12 @@ public class BotService {
     private PlayerAction playerAction;
     private GameState gameState;
     // Allowed gap sizes
-    final int MAX_GAP_WITH_BOUNDARY = 25;
-    final int MAX_GAP_WITH_OTHER_SHIPS = 50;
-    final int MAX_GAP_WITH_HARMFUL_OBJECTS = 5;
+    final int MAX_GAP_WITH_BOUNDARY = 40;
+    final int MAX_GAP_WITH_OTHER_SHIPS = 350;
+    final int MAX_GAP_WITH_HARMFUL_OBJECTS = 10;
+
+    private boolean used_afterburn = false;
+
     public BotService() {
         this.playerAction = new PlayerAction();
         this.gameState = new GameState();
@@ -37,8 +40,9 @@ public class BotService {
     }
 
     public void computeNextPlayerAction(PlayerAction playerAction) {
-
+            Random random = new Random();
         if (!gameState.getGameObjects().isEmpty()) {
+            System.out.println("\n\n============================");
             // Game Tick Payload
             var gameObjects = gameState.getGameObjects();
             var playerGameObjects = gameState.getPlayerGameObjects();
@@ -53,14 +57,16 @@ public class BotService {
                     .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD)
                     .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
                     .collect(Collectors.toList());
+
             var gasCloudsList = gameState.getGameObjects()
-                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.GAS_CLOUD)
+                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.GASCLOUD)
                     .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
                     .collect(Collectors.toList());
             var asteroidsList = gameState.getGameObjects()
-                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.ASTEROID_FIELD)
+                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.ASTEROIDFIELD)
                     .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
                     .collect(Collectors.toList());
+
 
             int currentSize = this.bot.getSize();
 
@@ -69,61 +75,195 @@ public class BotService {
             // nearest object
             // TODO: add more objects from ObjectTypes
             double nearestShips = getDistanceBetween(this.bot, playerList.get(1)) - currentSize - playerList.get(1).getSize();
+            double nearestShips2 = 0;
+            if (playerList.size() > 2) {
+                nearestShips2 = getDistanceBetween(this.bot, playerList.get(2)) - currentSize - playerList.get(2).getSize();
+            }
             double nearestGasCloud = getDistanceBetween(this.bot, gasCloudsList.get(0)) - currentSize - gasCloudsList.get(0).getSize();
             double nearestAsteroid = getDistanceBetween(this.bot, asteroidsList.get(0)) - currentSize - asteroidsList.get(0).getSize();
+//            double nearestSuperFood = getDistanceBetween(this.bot, supFoodList.get(0)) - currentSize;
+            forward();
+//            playerAction.heading = 0;
+//            System.out.println(playerGameObjects.get(0).torpedoSalvoCount);
 
-            // Default move
-            playerAction.action = PlayerActions.FORWARD;
-
-            System.out.println("Ships: " + nearestShips);
-            System.out.println("GasClouds: " + nearestGasCloud);
             int totalHarmfulObjects = countSurroundHarmfulObjects(nearestGasCloud, nearestAsteroid);
 
             boolean nearBoundary = distanceToBoundary <= MAX_GAP_WITH_BOUNDARY;
             if (nearestShips <= MAX_GAP_WITH_OTHER_SHIPS) {
-                // Check
+                // near other ships
                 if (!nearBoundary) { // if not near boundary
                     switch (totalHarmfulObjects) {
-                        case 0:
-                            playerAction.heading = currentSize - playerList.get(1).getSize() > 25
-                                    ? getHeadingBetween(playerList.get(1))
-                                    : getHeadingBetween(playerList.get(1)) + 150;
-                            if (currentSize - playerList.get(1).getSize() > 50 && nearestShips <= 5) {
-                                playerAction.action = PlayerActions.START_AFTERBURNER;
+                        case 0: // if no gas cloud & asteroid
+                            if (currentSize - playerList.get(1).getSize() > 5) {
+                                playerAction.heading = getHeadingBetween(playerList.get(1));
+                                attack();
+                            } else {
+                                if (nearestShips > 150) {
+                                    farming();
+                                    stopAfterburner();
+                                } else {
+                                    System.out.println("Escaping from other");
+                                    stopAfterburner();
+                                    if (nearestShips > 0.5) {
+                                        playerAction.heading = (-1) * (180 - getHeadingBetween(playerList.get(1))) + random.nextInt(4) + 3;
+                                        if (nearestShips < 60) {
+                                            if (nearestShips < 25) {
+                                                System.out.println("Attacking Big Ship");
+                                                playerAction.heading = getHeadingBetween(playerList.get(1));
+                                                fireTorpedoes();
+                                            } else {
+                                                startAfterburner();
+                                            }
+                                        } else {
+                                            stopAfterburner();
+                                        }
+                                    }
+                                }
                             }
-                            else {
-                                playerAction.action = PlayerActions.STOP_AFTERBURNER;
+                            break;
+                        case 1: // if there are 1 (whether gas cloud or asteroid)
+                            GameObject nearestObstacle = nearestGasCloud < nearestAsteroid ? gasCloudsList.get(0) : asteroidsList.get(0);
+                            // default: keep pursuing if size still greater
+                            // TODO : handling for gas clouds
+                            if (currentSize - playerList.get(1).getSize() > 5) {
+                                playerAction.heading = getHeadingBetween(playerList.get(1));
+                                attack();
+                            } else {
+                                // if size smaller
+                                stopAfterburner();
+                                if (nearestShips > 150) { // if other ships not too near -> avoid obstacle
+                                    playerAction.heading = getHeadingBetween(nearestObstacle) * (-1) + random.nextInt(4) + 6;
+                                } else {
+                                    System.out.println("Escaping from other + 1 obstacles");
+                                    if (nearestShips > 0.5) { // if other ships near -> avoid player & obstacle
+                                        playerAction.heading = ((getHeadingBetween(playerList.get(1)) + getHeadingBetween(nearestObstacle)) / (-2)) % 360 + random.nextInt(4) + 3;
+                                        if (nearestShips < 60) {
+                                            if (nearestShips < 25) {
+                                                System.out.println("Attacking Big Ship");
+                                                playerAction.heading = getHeadingBetween(playerList.get(1));
+                                                fireTorpedoes();
+                                            } else {
+                                                startAfterburner();
+                                            }
+                                        } else {
+                                            stopAfterburner();
+                                        }
+                                    }
+                                }
                             }
                             break;
-                        case 1:
-                            playerAction.heading = nearestGasCloud > nearestAsteroid
-                                    ? (Math.abs(getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(playerList.get(1))) / -2) + 15
-                                    : (Math.abs(getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween(playerList.get(1))) / -2) + 15;
+                        case 2: // if there are gas cloud & asteroid + other ship approach -> run from the 3
+                            if (currentSize - playerList.get(1).getSize() > 5) {
+                                playerAction.heading = getHeadingBetween(playerList.get(1));
+                                attack();
+                            } else {
+                                if (nearestShips < 25) {
+                                    System.out.println("Attacking Big Ship");
+                                    playerAction.heading = getHeadingBetween(playerList.get(1));
+                                    fireTorpedoes();
+                                } else {
+                                    System.out.println("Escaping from other + 2 obstacles");
+                                    stopAfterburner();
+                                    playerAction.heading = ((getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween(playerList.get(1))) / (-3) + random.nextInt(4) + 3) % 360;
+                                }
+                            }
                             break;
-                        case 2:
-                            playerAction.heading = (getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0))) / 2 + getHeadingBetween(playerList.get(1)) * (-1) + 6;
-                            break;
-                        default:
-                            playerAction.heading = getHeadingBetween(foodList.get(0));
                     }
+                    // TODO : conditional if approach by 2 or more ships
                 }
-                else { // near boundary
+                else { // near boundary + near other ship
                     switch (totalHarmfulObjects) {
-                        case 0:
-                            playerAction.heading = currentSize - playerList.get(1).getSize() > 25
-                                    ? getHeadingBetween(playerList.get(1))
-                                    : getHeadingBetween(playerList.get(1)) + 150;
+                        case 0: // if no gas clouds & asteroid but near boundary
+                            if (currentSize - playerList.get(1).getSize() > 5) {
+                                // attack if still safe gap from boundary
+                                if (distanceToBoundary > 10) {
+                                    playerAction.heading = getHeadingBetween(playerList.get(1));
+                                    attack();
+                                } else { // move to center if gap < 10
+                                    System.out.println("Escaping from boundary, but greater size");
+                                    moveToCenter();
+                                    stopAfterburner();
+                                }
+                            } else { // if smaller
+                                if (nearestShips > 150) { // if far from other ship + near boundary -> move to center
+                                    moveToCenter();
+                                } else { // if other ship approach
+                                    if (nearestShips > 0.5) {
+                                        if (nearestShips < 25) {
+                                            System.out.println("Attacking Big Ship");
+                                            playerAction.heading = getHeadingBetween(playerList.get(1));
+                                            fireTorpedoes();
+                                        } else {
+                                            System.out.println("Escaping from other + boundary");
+                                            playerAction.heading = getHeadingBetween(playerList.get(1)) < 15
+                                                    ? getHeadingBetween(playerList.get(1)) < 0
+                                                    ? ((getHeadingBetween(playerList.get(1)) + getHeadingBetween()) / (-2) + 15)
+                                                    : ((getHeadingBetween(playerList.get(1)) + getHeadingBetween()) / (-2) - 15)
+                                                    : ((getHeadingBetween(playerList.get(1)) + getHeadingBetween()) / (-2) + random.nextInt(4) + 3) % 360;
+                                        }
+//                                    if (playerAction.heading == getHeadingBetween(playerList.get(1)) * (-1)) {
+//                                        playerAction.heading -= 3;
+//                                    } else {
+//                                        if (playerAction.heading >= 0 && playerAction.heading <= 180) {
+//                                            playerAction.heading -= 6;
+//                                        } else {
+//                                            playerAction.heading += 6;
+//                                        }
+                                    }
+                                }
+                                stopAfterburner();
+                            }
                             break;
                         case 1:
-                            playerAction.heading = nearestGasCloud > nearestAsteroid
-                                    ? (Math.abs(getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(playerList.get(1)) + getHeadingBetween()) / -3) + 15
-                                    : (Math.abs(getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween(playerList.get(1)) + getHeadingBetween()) / -3) + 15;
+                            GameObject nearestObstacle = nearestGasCloud < nearestAsteroid ? gasCloudsList.get(0) : asteroidsList.get(0);
+                            if (currentSize - playerList.get(1).getSize() > 5) {
+                                if (distanceToBoundary > 10) {
+                                    playerAction.heading = getHeadingBetween(playerList.get(1));
+                                    attack();
+                                } else {
+                                    System.out.println("Escaping from boundary + 1 obstacle, but greater size");
+                                    stopAfterburner();
+                                    if (Math.abs(getHeadingBetween() - getHeadingBetween(nearestObstacle)) > 30) {
+                                        playerAction.heading = (getHeadingBetween() + getHeadingBetween(nearestObstacle)) / 2 + random.nextInt(4) + 3;
+                                    } else {
+                                        playerAction.heading += 15;
+                                    }
+                                }
+                            } else {
+                                if (nearestShips > 150) {
+                                    System.out.println("Escaping from boundary + 1 obstacle");
+                                    if (Math.abs(getHeadingBetween() - getHeadingBetween(nearestObstacle)) > 30) {
+                                        playerAction.heading = (getHeadingBetween() + getHeadingBetween(nearestObstacle)) / 2 + random.nextInt(4) + 3;
+                                    } else {
+                                        playerAction.heading += 15;
+                                    }
+                                } else {
+                                    if (nearestShips > 0.5) {
+                                        if (nearestShips < 25) {
+                                            System.out.println("Attacking Big Ship");
+                                            playerAction.heading = getHeadingBetween(playerList.get(1));
+                                            fireTorpedoes();
+                                        } else {
+                                            System.out.println("Escaping from other + boundary + 1 obstacle");
+                                            playerAction.heading = (getHeadingBetween(playerList.get(1)) * (-1) + getHeadingBetween() + getHeadingBetween(nearestObstacle) + random.nextInt(4) + 3) % 360;
+                                        }
+                                    }
+                                }
+                                stopAfterburner();
+                            }
                             break;
                         case 2:
-                            playerAction.heading = (getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween()) / 3 + getHeadingBetween(playerList.get(1)) * (-1) + 6;
+                            if (nearestShips < 25) {
+                                System.out.println("Attacking Big Ship");
+                                playerAction.heading = getHeadingBetween(playerList.get(1));
+                                fireTorpedoes();
+                            } else {
+                                System.out.println("Escaping from other + boundary + 2 obstacles");
+//                                stopAfterburner();
+                                playerAction.heading = ((getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween() + getHeadingBetween(playerList.get(0))) / (-4) + random.nextInt(4) + 3) % 360;
+                            }
+                            stopAfterburner();
                             break;
-                        default:
-                            playerAction.heading = getHeadingBetween(foodList.get(0));
                     }
                 }
 //                playerAction.action = PlayerActions.STOP;
@@ -134,29 +274,65 @@ public class BotService {
                     switch (totalHarmfulObjects) {
                         case 0:
                             // farming
-                            if (getDistanceBetween(this.bot, foodList.get(0)) - currentSize < nearestGasCloud + 5 || getDistanceBetween(this.bot, foodList.get(0)) - currentSize < nearestAsteroid + 5){
-//                                playerAction.action = PlayerActions.STOP;
-                                playerAction.heading = getHeadingBetween(foodList.get(0)) + 12;
+//                            farming();
+                            if (nearestGasCloud - getDistanceBetween(this.bot, foodList.get(0)) - currentSize > MAX_GAP_WITH_HARMFUL_OBJECTS / 2 || nearestAsteroid - getDistanceBetween(this.bot, foodList.get(0)) - currentSize > MAX_GAP_WITH_HARMFUL_OBJECTS / 2){
+                                farming();
                             } else {
-                                playerAction.heading = getHeadingBetween(foodList.get(0));
+                                moveToCenter();
                             }
                             break;
                         case 1:
+                            System.out.println("Escaping from 1 obstacle");
                             playerAction.heading = nearestGasCloud > nearestAsteroid
-                                    ? getHeadingBetween(asteroidsList.get(0)) * (-1) + 6
-                                    : getHeadingBetween(gasCloudsList.get(0)) * (-1) + 6;
+                                    ? (getHeadingBetween(asteroidsList.get(0)) * (-1) + random.nextInt(4) + 3) % 360
+                                    : (getHeadingBetween(gasCloudsList.get(0)) * (-1) + random.nextInt(4) + 3) % 360;
                             break;
                         case 2:
-                            playerAction.heading = (getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0))) / -2 + 6;
+                            System.out.println("Escaping from 2 obstacles");
+                            if (getDistanceBetween(asteroidsList.get(0), gasCloudsList.get(0)) - asteroidsList.get(0).getSize() - gasCloudsList.get(0).getSize() > currentSize + 15) {
+                                playerAction.heading = (getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0))) / 2 + random.nextInt(4) + 3;
+                            } else {
+                                playerAction.heading = ((getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0))) / -2 + random.nextInt(4) + 3) % 360;
+                            }
                             break;
                     }
                 }
                 else {
-                    playerAction.heading = getHeadingBetween();
+                    switch (totalHarmfulObjects) {
+                        case 0:
+                            System.out.println("Escaping from boundary");
+                            // move to center
+                            moveToCenter();
+                            break;
+                        case 1:
+                            System.out.println("Escaping from boundary + 1 obstacle");
+                            playerAction.heading = nearestGasCloud > nearestAsteroid
+                                    ? getHeadingBetween(asteroidsList.get(0)) * (-1) + 15
+                                    : getHeadingBetween(gasCloudsList.get(0)) * (-1) + 15;
+                            break;
+                        case 2:
+                            System.out.println("Escaping from boundary + 2 obstacle");
+                            playerAction.heading = ((getHeadingBetween(asteroidsList.get(0)) + getHeadingBetween(gasCloudsList.get(0)) + getHeadingBetween()) / (-3) + random.nextInt(4) + 3) % 360;
+                            break;
+                    }
                 }
+                stopAfterburner();
             }
 
+//            System.out.println("Ships-1: " + nearestShips);
+//            System.out.println("Ships-2: " + nearestShips2);
+//            System.out.println("GasClouds: " + nearestGasCloud);
+//            System.out.println("Current Size: " + currentSize);
+//            System.out.println("Opponent Size: " + playerList.get(1).getSize());
+//            System.out.println("Distance to boundary: " + distanceToBoundary);
+//            System.out.println("Speed: " + this.bot.getSpeed());
+            System.out.println("Tick: " + gameState.world.currentTick);
+//            System.out.println("Heading: " + this.bot.currentHeading % 360);
+            System.out.println("============================\n\n");
 
+            if (this.bot.getSize() <= 10) {
+                stopAfterburner();
+            }
         }
 
         this.playerAction = playerAction;
@@ -164,7 +340,7 @@ public class BotService {
 
     private int countSurroundHarmfulObjects(double nearestGasCloud, double nearestAsteroid) {
         if (nearestGasCloud <= MAX_GAP_WITH_HARMFUL_OBJECTS || nearestAsteroid <= MAX_GAP_WITH_HARMFUL_OBJECTS) {
-            if (Math.abs(nearestGasCloud - nearestAsteroid) > 20) {
+            if (Math.abs(nearestGasCloud - nearestAsteroid) > 40) {
                 return 1;
             }
             else {
@@ -174,6 +350,71 @@ public class BotService {
         else {
             return 0;
         }
+    }
+
+    private void farming() {
+        System.out.println("Farming");
+        var foodList = gameState.getGameObjects()
+                .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD)
+                .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
+                .collect(Collectors.toList());
+
+        var supFoodList = gameState.getGameObjects()
+                .stream().filter(item -> item.getGameObjectType() == ObjectTypes.SUPERFOOD)
+                .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
+                .collect(Collectors.toList());
+        double nearestFood = getDistanceBetween(this.bot, foodList.get(0)) - this.bot.getSize();
+        double nearestSupFood = getDistanceBetween(this.bot, supFoodList.get(0)) - this.bot.getSize();
+        this.playerAction.heading = nearestSupFood <= nearestFood
+                ? getHeadingBetween(supFoodList.get(0))
+                : getHeadingBetween(foodList.get(0));
+    }
+
+    private void moveToCenter() {
+        System.out.println("Moving to Center");
+        this.playerAction.heading = getHeadingBetween();
+    }
+
+    private void attack() {
+        System.out.println("Attacking");
+        var playerList = gameState.getPlayerGameObjects()
+                .stream().filter(item -> item.getGameObjectType() == ObjectTypes.PLAYER)
+                .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
+                .collect(Collectors.toList());
+        double nearestShips = getDistanceBetween(this.bot, playerList.get(1)) - this.bot.getSize() - playerList.get(1).getSize();
+        if (nearestShips < 150) {
+            if (this.bot.getSize() >= 15) {
+                fireTorpedoes();
+            }
+        } else {
+            if (this.bot.getSize() > playerList.get(1).getSize() + 20) {
+                this.used_afterburn = true;
+                this.playerAction.action = PlayerActions.STARTAFTERBURNER;
+            }
+        }
+    }
+
+    private void fireTorpedoes() {
+        this.playerAction.action = PlayerActions.FIRETORPEDOES;
+    }
+
+    private void stopAfterburner() {
+        if (this.used_afterburn) {
+            System.out.println("Stopping Afterburner");
+            this.playerAction.action = PlayerActions.STOPAFTERBURNER;
+            this.used_afterburn = false;
+        }
+    }
+
+    private void startAfterburner() {
+        System.out.println("Start Afterburner");
+        this.used_afterburn = true;
+        this.playerAction.action = PlayerActions.STARTAFTERBURNER;
+    }
+
+    private void forward() {
+        System.out.println("Moving forward");
+        this.playerAction.action = PlayerActions.FORWARD;
     }
 
     public GameState getGameState() {
