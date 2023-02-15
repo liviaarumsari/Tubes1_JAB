@@ -20,6 +20,7 @@ public class BotService {
     private static boolean firedTeleport = false;
     private boolean aggresiveMode = false;
     private static boolean hasActiveTeleporter = false;
+    private static int torpedoHit = 0;
 
 //    private boolean used_afterburn = false;
 
@@ -53,6 +54,7 @@ public class BotService {
             }
             System.out.println("\n\n============================");
             // Game Tick Payload
+            int INT_MAX = 2147483647;
             var gameObjects = gameState.getGameObjects();
             var playerGameObjects = gameState.getPlayerGameObjects();
             var worldObjects = gameState.getWorld();
@@ -75,6 +77,10 @@ public class BotService {
                     .stream().filter(item -> item.getGameObjectType() == ObjectTypes.ASTEROIDFIELD)
                     .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
                     .collect(Collectors.toList());
+            var torpedosList = gameState.getGameObjects()
+                    .stream().filter(item -> item.getGameObjectType() == ObjectTypes.TORPEDOSALVO)
+                    .sorted(Comparator.comparing(item -> getDistanceBetween(bot, item)))
+                    .collect(Collectors.toList());
 
 
             int currentSize = this.bot.getSize();
@@ -83,25 +89,30 @@ public class BotService {
 
             // nearest object
             // TODO: add more objects from ObjectTypes
-            double nearestShips = getDistanceBetween(this.bot, playerList.get(1)) - currentSize - playerList.get(1).getSize();
-            double nearestGasCloud = getDistanceBetween(this.bot, gasCloudsList.get(0)) - currentSize - gasCloudsList.get(0).getSize();
-            double nearestAsteroid = getDistanceBetween(this.bot, asteroidsList.get(0)) - currentSize - asteroidsList.get(0).getSize();
+            double nearestShips = playerList.size() > 1 ? getDistanceBetween(this.bot, playerList.get(1)) - currentSize - playerList.get(1).getSize() : INT_MAX;
+            double nearestGasCloud = gasCloudsList.size() > 0 ? getDistanceBetween(this.bot, gasCloudsList.get(0)) - currentSize - gasCloudsList.get(0).getSize() : INT_MAX;
+            double nearestAsteroid = asteroidsList.size() > 0 ? getDistanceBetween(this.bot, asteroidsList.get(0)) - currentSize - asteroidsList.get(0).getSize() : INT_MAX;
             forward();
 
 
             int totalHarmfulObjects = countSurroundHarmfulObjects(nearestGasCloud, nearestAsteroid);
 
+            // check torpedoes
+            torpedoDefense(torpedosList);
+
             boolean nearBoundary = distanceToBoundary <= MAX_GAP_WITH_BOUNDARY;
+            if (torpedoHit == 0)
+            {
             if (nearestShips <= MAX_GAP_WITH_OTHER_SHIPS) {
                 // near other ships
                 if (!nearBoundary) { // if not near boundary
                     switch (totalHarmfulObjects) {
                         case 0: // if no gas cloud & asteroid
-                            if (currentSize - playerList.get(1).getSize() > 3) {
+                            if (currentSize - playerList.get(1).getSize() > 5) {
                                 playerAction.heading = getHeadingBetween(playerList.get(1));
                                 attack();
                             } else {
-                                if (nearestShips > 150) {
+                                if (nearestShips > 200) {
                                     farming();
                                     stopAfterburner();
                                 } else {
@@ -309,6 +320,7 @@ public class BotService {
                 }
                 stopAfterburner();
             }
+        }
 
 //            System.out.println("Ships-1: " + nearestShips);
 //            System.out.println("Ships-2: " + nearestShips2);
@@ -324,6 +336,9 @@ public class BotService {
             if (this.bot.getSize() <= 10) {
                 stopAfterburner();
             }
+        }
+        else if (!gameState.getPlayerGameObjects().isEmpty()) {
+            attack();
         }
 
         this.playerAction = playerAction;
@@ -406,7 +421,7 @@ public class BotService {
 
         if (this.aggresiveMode) {
             System.out.println("Aggressive Attacking");
-            if (this.firedTeleport) {
+            if (firedTeleport) {
                 if (getDistanceBetween(selfTeleporter.get(0), playerList.get(1)) < 5) {
                     teleport();
                 } else {
@@ -424,17 +439,17 @@ public class BotService {
                     stopAfterburner();
                 }
                 else {
-                    if (this.supernovaAvail) {
+                    if (supernovaAvail) {
                         if (nearestShips > 150) {
                             this.playerAction.action = PlayerActions.FIRESUPERNOVA;
-                            this.supernovaAvail = false;
+                            supernovaAvail = false;
                             System.out.println("Fired Supernova URAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
                         } else {
                             fireTorpedoes();
                         }
                         stopAfterburner();
                     } else {
-                        if (nearestShips < 150) {
+                        if (nearestShips < 200 && nearestShips > 50) {
                             fireTorpedoes();
                         } else {
                             if (this.bot.getSize() > playerList.get(1).getSize() + 20) {
@@ -446,16 +461,16 @@ public class BotService {
             }
         } else {
             System.out.println("Normal Attacking");
-            if (this.supernovaAvail) {
+            if (supernovaAvail) {
                 if (nearestShips > 150) {
                     this.playerAction.action = PlayerActions.FIRESUPERNOVA;
-                    this.supernovaAvail = false;
+                    supernovaAvail = false;
                     System.out.println("Fired Supernova URAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
                 } else {
                     fireTorpedoes();
                 }
             } else {
-                if (nearestShips < 150) {
+                if (nearestShips < 200 && nearestShips > 50) {
                     fireTorpedoes();
                 } else {
                     if (this.bot.getSize() > playerList.get(1).getSize() + 20) {
@@ -468,7 +483,7 @@ public class BotService {
 
     private void fireTorpedoes() {
         System.out.println("Firing torpedoes");
-        if (this.bot.getSize() >= 15) {
+        if (this.bot.getSize() >= 20) {
             this.playerAction.action = PlayerActions.FIRETORPEDOES;
         }
     }
@@ -476,16 +491,16 @@ public class BotService {
     private void fireTeleporter() {
         System.out.println("Firing teleporter");
         this.playerAction.action = PlayerActions.FIRETELEPORT;
-        this.teleporterCount--;
-        this.firedTeleport = true;
-        this.hasActiveTeleporter = true;
+        teleporterCount--;
+        firedTeleport = true;
+        hasActiveTeleporter = true;
     }
 
     private void teleport() {
         System.out.println("Teleporting");
         this.playerAction.action = PlayerActions.TELEPORT;
-        this.firedTeleport = false;
-        this.hasActiveTeleporter = false;
+        firedTeleport = false;
+        hasActiveTeleporter = false;
     }
 
     private void stopAfterburner() {
@@ -525,6 +540,60 @@ public class BotService {
         return Math.sqrt(triangleX * triangleX + triangleY * triangleY);
     }
 
+    private boolean isTorpedoInRange(GameObject torpedo) {
+        double rangeRadius = 1.5*this.bot.size;
+        if (torpedo.getPosition().x < this.bot.position.x + rangeRadius && torpedo.getPosition().x > this.bot.position.x - rangeRadius) {
+            if (torpedo.getPosition().y < this.bot.position.y + rangeRadius && torpedo.getPosition().y > this.bot.position.y - rangeRadius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isTorpedoHit(GameObject torpedo) {
+        double dist = getDistanceBetween(this.bot, torpedo);
+        double rangeDist = Math.sqrt(dist * dist + this.bot.getSize()*this.bot.getSize());
+        var range = toDegrees(Math.acos(this.bot.getSize()/rangeDist));
+
+        var torpedoRange = Math.abs(torpedo.currentHeading - getHeadingBetween(torpedo,this.bot));
+
+        if (torpedoRange <= range) {
+            return true;
+        }
+        return false;
+    }
+
+    private void torpedoDefense(List<GameObject> torpList) {
+        boolean multipleHeading = false;
+        torpedoHit = 0;
+        double firstHeading = -1;
+        int idxFirstHit = -1;
+
+        for(int i=0;i < torpList.size();i++) {
+            if (isTorpedoInRange(torpList.get(i)) && isTorpedoHit(torpList.get(i))) {
+                torpedoHit++;
+                if (firstHeading == -1) {
+                    firstHeading = torpList.get(i).currentHeading;
+                    idxFirstHit = i;
+                }
+                else {
+                    double headingDifference = Math.abs(firstHeading - torpList.get(i).currentHeading);
+                    if (headingDifference > 15) {            
+                        multipleHeading = true;
+                        if (this.bot.effects < 16) {    
+                            System.out.println("Activate shield!!");
+                            this.playerAction.action = PlayerActions.ACTIVATESHIELD;
+                        }
+                    }
+                }
+            }
+        }
+
+        if(!multipleHeading && torpedoHit > 0) {
+            this.playerAction.heading = getHeadingBetween(torpList.get(idxFirstHit),this.bot) + 90;
+        }
+    }
+
     /**
      * Get distance relative to boundary
      * @param bot this bot
@@ -534,6 +603,12 @@ public class BotService {
     private double getDistanceBetween(GameObject bot, World world) {
         var botPosition = Math.sqrt(bot.getPosition().x * bot.getPosition().x + bot.getPosition().y * bot.getPosition().y);
         return world.getRadius() - botPosition;
+    }
+
+    private int getHeadingBetween(GameObject object1, GameObject object2) {
+        var direction = toDegrees(Math.atan2(object2.getPosition().y - object1.getPosition().y,
+                object2.getPosition().x - object1.getPosition().x));
+        return (direction + 360) % 360;
     }
 
     private int getHeadingBetween(GameObject otherObject) {
