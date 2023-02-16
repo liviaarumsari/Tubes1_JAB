@@ -566,7 +566,7 @@ public class BotService {
                             this.playerAction.action = PlayerActions.STOPAFTERBURNER;
                         }
                     } else {
-                        if (nearestShips < 150 && nearestShips > 50) {
+                        if (nearestShips < 300 && nearestShips > 50) {
                             if (this.bot.getSize() >= 30) {
                                 playerAction.heading = getHeadingBetween(playerList.get(1));
                                 playerAction.action = PlayerActions.FIRETORPEDOES;
@@ -601,7 +601,7 @@ public class BotService {
                     }
                 }
             } else {
-                if (nearestShips < 150 && nearestShips > 50) {
+                if (nearestShips < 300 && nearestShips > 50) {
                     if (this.bot.getSize() >= 30) {
                         playerAction.heading = getHeadingBetween(playerList.get(1));
                         playerAction.action = PlayerActions.FIRETORPEDOES;
@@ -687,7 +687,7 @@ public class BotService {
     }
 
     private boolean isTorpedoInRange(GameObject torpedo) {
-        double rangeRadius = 1.2*this.bot.size;
+        double rangeRadius = 1.5*this.bot.size;
         if (torpedo.getPosition().x < this.bot.position.x + rangeRadius && torpedo.getPosition().x > this.bot.position.x - rangeRadius) {
             return torpedo.getPosition().y < this.bot.position.y + rangeRadius && torpedo.getPosition().y > this.bot.position.y - rangeRadius;
         }
@@ -711,7 +711,7 @@ public class BotService {
         double firstHeading = -1;
         int idxFirstHit = -1;
 
-        if (torpList.size() != 0 && getDistanceBetween(torpList.get(0), this.bot) < 60) {
+        if (torpList.size() != 0 && getDistanceBetween(torpList.get(0), this.bot) - this.bot.getSize() < 50 && this.bot.getSize() > 40) {
             torpedoHit++;
             if (this.bot.effects < 16) {
                 System.out.println("Activate shield!!");
