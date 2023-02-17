@@ -37,8 +37,8 @@ Once the build is finished, a target folder will be created at the project root 
 ## Project Structure
 ```bash
 .
-│   README.md
-│   .gitignore
+├───README.md
+├───.gitignore
 │
 ├───src
 │   └───main
