@@ -19,8 +19,6 @@ public class BotService {
 
     private static boolean supernovaAvail = false;
 
-    private static int teleporterCount = 0;
-
     private static boolean firedTeleport = false;
 
     private boolean aggresiveMode = false;
@@ -54,9 +52,6 @@ public class BotService {
         Random random = new Random();
         if (!this.gameState.getGameObjects().isEmpty()) {
             System.out.println("\n\n============================");
-            int INT_MAX = Integer.MAX_VALUE;
-            List<GameObject> gameObjects = this.gameState.getGameObjects();
-            List<GameObject> playerGameObjects = this.gameState.getPlayerGameObjects();
             World worldObjects = this.gameState.getWorld();
             List<GameObject> playerList = (List<GameObject>)this.gameState.getPlayerGameObjects().stream().filter(item -> (item.getGameObjectType() == ObjectTypes.PLAYER)).sorted(Comparator.comparing(item -> Double.valueOf(getDistanceBetween(this.bot, item)))).collect(Collectors.toList());
             List<GameObject> foodList = (List<GameObject>)this.gameState.getGameObjects().stream().filter(item -> (item.getGameObjectType() == ObjectTypes.FOOD)).sorted(Comparator.comparing(item -> Double.valueOf(getDistanceBetween(this.bot, item)))).collect(Collectors.toList());
@@ -72,10 +67,9 @@ public class BotService {
             int totalHarmfulObjects = countSurroundHarmfulObjects(nearestGasCloud, nearestAsteroid);
             torpedoDefense(torpedosList);
             System.out.println("Torpedo hit: " + torpedoHit);
-            System.out.println("Teleport count: " + teleporterCount);
-            boolean nearBoundary = (distanceToBoundary <= 40.0D);
+            boolean nearBoundary = (distanceToBoundary <= 40.0);
             if (torpedoHit == 0)
-                if (nearestShips <= 350.0D) {
+                if (nearestShips <= 350.0) {
                     if (!nearBoundary) {
                         GameObject nearestObstacle;
                         switch (totalHarmfulObjects) {
@@ -84,17 +78,17 @@ public class BotService {
                                     playerAction = attack();
                                     break;
                                 }
-                                if (nearestShips > 200.0D) {
+                                if (nearestShips > 200.0) {
                                     farming();
                                     stopAfterburner();
                                     break;
                                 }
                                 System.out.println("Escaping from other");
                                 stopAfterburner();
-                                if (nearestShips > 0.5D) {
+                                if (nearestShips > 0.5) {
                                     playerAction.heading = getHeadingBetween(playerList.get(1)) + random.nextInt(4) + 90;
-                                    if (nearestShips < 120.0D) {
-                                        if (nearestShips < 80.0D) {
+                                    if (nearestShips < 120.0) {
+                                        if (nearestShips < 80.0) {
                                             System.out.println("Attacking Big Ship");
                                             playerAction.heading = getHeadingBetween(playerList.get(1));
                                             if (this.bot.getSize() >= 30)
@@ -114,15 +108,15 @@ public class BotService {
                                     break;
                                 }
                                 stopAfterburner();
-                                if (nearestShips > 150.0D) {
+                                if (nearestShips > 150.0) {
                                     playerAction.heading = getHeadingBetween(nearestObstacle) * -1 + random.nextInt(4) + 6;
                                     break;
                                 }
                                 System.out.println("Escaping from other + 1 obstacles");
-                                if (nearestShips > 0.5D) {
+                                if (nearestShips > 0.5) {
                                     playerAction.heading = (getHeadingBetween(playerList.get(1)) + getHeadingBetween(nearestObstacle)) / -2 % 360 + random.nextInt(4) + 3;
-                                    if (nearestShips < 120.0D) {
-                                        if (nearestShips < 80.0D) {
+                                    if (nearestShips < 120.0) {
+                                        if (nearestShips < 80.0) {
                                             System.out.println("Attacking Big Ship");
                                             playerAction.heading = getHeadingBetween(playerList.get(1));
                                             if (this.bot.getSize() >= 30)
@@ -140,7 +134,7 @@ public class BotService {
                                     playerAction = attack();
                                     break;
                                 }
-                                if (nearestShips < 80.0D) {
+                                if (nearestShips < 80.0) {
                                     System.out.println("Attacking Big Ship");
                                     playerAction.heading = getHeadingBetween(playerList.get(1));
                                     if (this.bot.getSize() >= 30)
@@ -157,7 +151,7 @@ public class BotService {
                         switch (totalHarmfulObjects) {
                             case 0:
                                 if (currentSize - ((GameObject)playerList.get(1)).getSize() > 3) {
-                                    if (distanceToBoundary > 10.0D) {
+                                    if (distanceToBoundary > 10.0) {
                                         playerAction = attack();
                                         break;
                                     }
@@ -166,10 +160,10 @@ public class BotService {
                                     stopAfterburner();
                                     break;
                                 }
-                                if (nearestShips > 150.0D) {
+                                if (nearestShips > 150.0) {
                                     moveToCenter();
-                                } else if (nearestShips > 0.5D) {
-                                    if (nearestShips < 80.0D) {
+                                } else if (nearestShips > 0.5) {
+                                    if (nearestShips < 80.0) {
                                         System.out.println("Attacking Big Ship");
                                         playerAction.heading = getHeadingBetween(playerList.get(1));
                                         if (this.bot.getSize() >= 30)
@@ -184,7 +178,7 @@ public class BotService {
                             case 1:
                                 nearestObstacle = (nearestGasCloud < nearestAsteroid) ? gasCloudsList.get(0) : asteroidsList.get(0);
                                 if (currentSize - ((GameObject)playerList.get(1)).getSize() > 3) {
-                                    if (distanceToBoundary > 30.0D) {
+                                    if (distanceToBoundary > 30.0) {
                                         playerAction = attack();
                                         break;
                                     }
@@ -197,15 +191,15 @@ public class BotService {
                                     playerAction.heading += 15;
                                     break;
                                 }
-                                if (nearestShips > 150.0D) {
+                                if (nearestShips > 150.0) {
                                     System.out.println("Escaping from boundary + 1 obstacle");
                                     if (Math.abs(getHeadingBetween() - getHeadingBetween(nearestObstacle)) > 30) {
                                         playerAction.heading = (getHeadingBetween() + getHeadingBetween(nearestObstacle)) / 2 + random.nextInt(4) + 3;
                                     } else {
                                         playerAction.heading += 15;
                                     }
-                                } else if (nearestShips > 0.5D) {
-                                    if (nearestShips < 80.0D) {
+                                } else if (nearestShips > 0.5) {
+                                    if (nearestShips < 80.0) {
                                         System.out.println("Attacking Big Ship");
                                         playerAction.heading = getHeadingBetween(playerList.get(1));
                                         if (this.bot.getSize() >= 30)
@@ -218,7 +212,7 @@ public class BotService {
                                 stopAfterburner();
                                 break;
                             case 2:
-                                if (nearestShips < 80.0D) {
+                                if (nearestShips < 80.0) {
                                     System.out.println("Attacking Big Ship");
                                     playerAction.heading = getHeadingBetween(playerList.get(1));
                                     if (this.bot.getSize() >= 30)
@@ -235,7 +229,7 @@ public class BotService {
                     if (!nearBoundary) {
                         switch (totalHarmfulObjects) {
                             case 0:
-                                if (nearestGasCloud - getDistanceBetween(this.bot, foodList.get(0)) - currentSize > 15.0D || nearestAsteroid - getDistanceBetween(this.bot, foodList.get(0)) - currentSize > 15.0D) {
+                                if (nearestGasCloud - getDistanceBetween(this.bot, foodList.get(0)) - currentSize > 15.0 || nearestAsteroid - getDistanceBetween(this.bot, foodList.get(0)) - currentSize > 15.0) {
                                     farming();
                                     break;
                                 }
@@ -301,8 +295,8 @@ public class BotService {
     }
 
     private int countSurroundHarmfulObjects(double nearestGasCloud, double nearestAsteroid) {
-        if (nearestGasCloud <= 30.0D || nearestAsteroid <= 30.0D) {
-            if (Math.abs(nearestGasCloud - nearestAsteroid) > 40.0D)
+        if (nearestGasCloud <= 30.0 || nearestAsteroid <= 30.0) {
+            if (Math.abs(nearestGasCloud - nearestAsteroid) > 40.0)
                 return 1;
             return 2;
         }
@@ -316,11 +310,11 @@ public class BotService {
         List<GameObject> supernovaList = (List<GameObject>)this.gameState.getGameObjects().stream().filter(item -> (item.getGameObjectType() == ObjectTypes.SUPERNOVAPICKUP)).sorted(Comparator.comparing(item -> Double.valueOf(getDistanceBetween(this.bot, item)))).collect(Collectors.toList());
         double nearestFood = getDistanceBetween(this.bot, foodList.get(0)) - this.bot.getSize();
         double nearestSupFood = getDistanceBetween(this.bot, supFoodList.get(0)) - this.bot.getSize();
-        double distanceToSupernova = 0.0D;
+        double distanceToSupernova = 0.0;
         if (supernovaList.size() != 0) {
             distanceToSupernova = getDistanceBetween(this.bot, supernovaList.get(0)) - this.bot.getSize();
-            if (distanceToSupernova < 50.0D) {
-                if (distanceToSupernova <= 0.0D) {
+            if (distanceToSupernova < 50.0) {
+                if (distanceToSupernova <= 0.0) {
                     supernovaAvail = true;
                     System.out.println("PICKED UP SUPERNOVA AAAAAAAAAA-------------");
                 } else {
@@ -364,7 +358,6 @@ public class BotService {
                 stopAfterburner();
             } else if (this.bot.getSize() > ((GameObject)playerList.get(1)).getSize() + 25 && !hasActiveTeleporter) {
                 playerAction.action = PlayerActions.FIRETELEPORT;
-                teleporterCount--;
                 firedTeleport = true;
                 hasActiveTeleporter = true;
                 System.out.println("Teleport: " + firedTeleport);
@@ -374,7 +367,7 @@ public class BotService {
                 playerAction.heading = getHeadingBetween(playerList.get(1));
                 stopAfterburner();
             } else if (supernovaAvail) {
-                if (nearestShips > 150.0D) {
+                if (nearestShips > 150.0) {
                     playerAction.action = PlayerActions.FIRESUPERNOVA;
                     supernovaAvail = false;
                     System.out.println("Fired Supernova URAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
@@ -382,7 +375,7 @@ public class BotService {
                     playerAction.action = PlayerActions.FIRETORPEDOES;
                 }
                 stopAfterburner();
-            } else if (nearestShips < 150.0D && nearestShips > 50.0D) {
+            } else if (nearestShips < 150.0 && nearestShips > 50.0) {
                 if (this.bot.getSize() >= 30)
                     playerAction.action = PlayerActions.FIRETORPEDOES;
                 stopAfterburner();
@@ -392,14 +385,14 @@ public class BotService {
         } else {
             System.out.println("Normal Attacking");
             if (supernovaAvail) {
-                if (nearestShips > 150.0D) {
+                if (nearestShips > 150.0) {
                     playerAction.action = PlayerActions.FIRESUPERNOVA;
                     supernovaAvail = false;
                     System.out.println("Fired Supernova URAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
                 } else if (this.bot.getSize() >= 30) {
                     playerAction.action = PlayerActions.FIRETORPEDOES;
                 }
-            } else if (nearestShips < 150.0D && nearestShips > 50.0D) {
+            } else if (nearestShips < 150.0 && nearestShips > 50.0) {
                 if (this.bot.getSize() >= 30)
                     playerAction.action = PlayerActions.FIRETORPEDOES;
             } else if (this.bot.getSize() > ((GameObject)playerList.get(1)).getSize() + 20) {
@@ -407,27 +400,6 @@ public class BotService {
             }
         }
         return playerAction;
-    }
-
-    private void fireTorpedoes() {
-        System.out.println("Firing torpedoes");
-        if (this.bot.getSize() >= 30)
-            this.playerAction.action = PlayerActions.FIRETORPEDOES;
-    }
-
-    private void fireTeleporter() {
-        System.out.println("Firing teleporter->>>>>>>>>>>>>>>>>>>>>>>>>>");
-        this.playerAction.action = PlayerActions.FIRETELEPORT;
-        teleporterCount--;
-        firedTeleport = true;
-        hasActiveTeleporter = true;
-    }
-
-    private void teleport() {
-        System.out.println("Teleporting");
-        this.playerAction.action = PlayerActions.TELEPORT;
-        firedTeleport = false;
-        hasActiveTeleporter = false;
     }
 
     private void stopAfterburner() {
@@ -486,9 +458,9 @@ public class BotService {
     private void torpedoDefense(List<GameObject> torpList) {
         boolean multipleHeading = false;
         torpedoHit = 0;
-        double firstHeading = -1.0D;
+        double firstHeading = -1.0;
         int idxFirstHit = -1;
-        if (torpList.size() != 0 && getDistanceBetween(torpList.get(0), this.bot) < 60.0D) {
+        if (torpList.size() != 0 && getDistanceBetween(torpList.get(0), this.bot) < 60.0) {
             torpedoHit++;
             if (this.bot.effects.intValue() < 16) {
                 System.out.println("Activate shield!!");
@@ -498,12 +470,12 @@ public class BotService {
             for (int i = 0; i < torpList.size(); i++) {
                 if (isTorpedoInRange(torpList.get(i)) && isTorpedoHit(torpList.get(i))) {
                     torpedoHit++;
-                    if (firstHeading == -1.0D) {
+                    if (firstHeading == -1.0) {
                         firstHeading = ((GameObject)torpList.get(i)).currentHeading.intValue();
                         idxFirstHit = i;
                     } else {
                         double headingDifference = Math.abs(firstHeading - ((GameObject)torpList.get(i)).currentHeading.intValue());
-                        if (headingDifference > 15.0D) {
+                        if (headingDifference > 15.0) {
                             multipleHeading = true;
                             if (this.bot.effects.intValue() < 16) {
                                 System.out.println("Activate shield!!");
