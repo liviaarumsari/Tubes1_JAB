@@ -32,7 +32,6 @@ mvn clean package
 Once the build is finished, a target folder will be created at the project root with `JAB.jar` inside it. You can place the `JAB.jar` file in your target folder.
 
 ## Tech Stack
-### Programming Languange
 * OpenJDK 18.0.2.1
 
 ## Project Structure
