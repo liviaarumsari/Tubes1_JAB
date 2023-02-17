@@ -316,7 +316,7 @@ public class BotService {
             if (distanceToSupernova < 50.0) {
                 if (distanceToSupernova <= 0.0) {
                     supernovaAvail = true;
-                    System.out.println("PICKED UP SUPERNOVA AAAAAAAAAA-------------");
+                    System.out.println("PICKED UP SUPERNOVA");
                 } else {
                     this.playerAction.heading = getHeadingBetween(supernovaList.get(0));
                 }
@@ -370,7 +370,7 @@ public class BotService {
                 if (nearestShips > 150.0) {
                     playerAction.action = PlayerActions.FIRESUPERNOVA;
                     supernovaAvail = false;
-                    System.out.println("Fired Supernova URAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+                    System.out.println("Fired Supernova");
                 } else if (this.bot.getSize() >= 30) {
                     playerAction.action = PlayerActions.FIRETORPEDOES;
                 }
@@ -388,7 +388,7 @@ public class BotService {
                 if (nearestShips > 150.0) {
                     playerAction.action = PlayerActions.FIRESUPERNOVA;
                     supernovaAvail = false;
-                    System.out.println("Fired Supernova URAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+                    System.out.println("Fired Supernova");
                 } else if (this.bot.getSize() >= 30) {
                     playerAction.action = PlayerActions.FIRETORPEDOES;
                 }
